@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+</head>
+<body>
+<style>
+    body{
+        display: flex;
+        align-items: center;
+        margin: 50%,auto;
+        background-color: black;
+    }
+    canvas {
+        margin: auto;
+        border: 1, solid, white;
+    }
+</style>
+    <script>
+const config = {
+  type: Phaser.AUTO,
+  width: 1280,
+  height: 720,
+  loader: {
+    baseURL: "",
+    crossOrigin: "anonymous"
+  },
+  physics: {
+    default: "arcade",
+    arcade: {
+      debug: true,
+      debugShowBody: true
+    }
+  },
+  scene: {
+    preload: preload,
+    create: create,
+    update: update
+  },
+  antialias: false
+  
+};
+
+function preload()
+{
+    this.load.setBaseURL('');
+
+    this.load.image('sky', 'assets/skies/space3.png');
+    this.load.image('ship', '/media/spaceshit.png');
+    this.load.image('asteroid','/media/asteroid.png')
+    this.load.image('red', 'assets/particles/red.png');
+}
+
+var game = new Phaser.Game(config);
+
+var SPEED = 200;
+var ROTATION_SPEED = 1 * Math.PI; // 0.5 turn per sec, 2 sec per turn
+var ROTATION_SPEED_DEGREES = Phaser.Math.RadToDeg(ROTATION_SPEED);
+var TOLERANCE = 0.02 * ROTATION_SPEED;
+
+var velocityFromRotation = Phaser.Physics.Arcade.ArcadePhysics.prototype.velocityFromRotation;
+var ship;
+
+function create()
+{
+    this.add.image(400, 300, 'sky');
+
+    const particles = this.add.particles(0, 0, 'red', {
+        speed: 100,
+        scale: { start: 1, end: 0 },
+        blendMode: 'ADD'
+    });
+
+    const asteroids = this.physics.add.group(); // Create a group for asteroids
+
+    const numberOfAsteroids = 5; // Number of asteroids to spawn
+    setInterval(()=>{ 
+        const x = Phaser.Math.Between(0, this.sys.game.config.width); // Random x coordinate
+        const asteroid = asteroids.create(x, 0, 'asteroid'); // Spawn from the upper edge
+        asteroid.setVelocity(Phaser.Math.Between(-200, 200), Phaser.Math.Between(100, 300)); // Random velocities
+        asteroid.setBounce(1, 1);
+        asteroid.setCollideWorldBounds(true);
+        this.physics.add.collider(asteroid, asteroids, asteroidCollision, null, this); // Add collision detection between asteroids
+    },100);
+
+    ship = this.physics.add.image(200, 150, 'ship').setVelocity(SPEED, 0);
+    particles.startFollow(ship);
+}
+
+function update(){
+    pointerMove(this.input.activePointer);
+    velocityFromRotation(ship.rotation, SPEED, ship.body.velocity);
+    ship.body.debugBodyColor = (ship.body.angularVelocity === 0) ? 0xff0000 : 0xffff00;
+}
+
+function pointerMove(pointer) {
+    var angleToPointer = Phaser.Math.Angle.Between(ship.x, ship.y, pointer.worldX, pointer.worldY);
+    var angleDelta = Phaser.Math.Angle.Wrap(angleToPointer - ship.rotation);
+    if (Phaser.Math.Fuzzy.Equal(angleDelta, 0, TOLERANCE)) {
+        ship.rotation = angleToPointer;
+        ship.setAngularVelocity(0);
+    } else {
+        ship.setAngularVelocity(Math.sign(angleDelta) * ROTATION_SPEED_DEGREES);
+    }
+}
+
+function asteroidCollision(asteroid1, asteroid2) {
+    // Create explosion particles at the collision point
+    const particles = this.add.particles('red');
+    const explosion = particles.createEmitter({
+        x: (asteroid1.x + asteroid2.x) / 2,
+        y: (asteroid1.y + asteroid2.y) / 2,
+        speed: { min: 50, max: 200 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1, end: 0 },
+        lifespan: 500,
+        blendMode: 'ADD'
+    });
+    
+    // Destroy both asteroids
+    asteroid1.destroy();
+    asteroid2.destroy();
+}
+    </script>
+</body>
+</html>

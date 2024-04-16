@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+</head>
+<body>
+    
+<style>
+    body{
+        display: flex;
+        align-items: center;
+        
+        background-color: black;
+    }
+    canvas {
+        margin: auto;
+        border: 8px ridge rgb(255, 255, 255);
+    }
+</style>
+    <script>
+var alive = true;
+const config = {
+  type: Phaser.AUTO,
+  width: 1280,
+  height: 720,
+  loader: {
+    baseURL: "",
+    crossOrigin: "anonymous"
+  },
+  physics: {
+    default: "arcade",
+    arcade: {
+      debug: true,
+      debugShowBody: true
+    }
+  },
+  scene: {
+    preload: preload,
+    create: create,
+    update: update,
+  },
+  antialias: false
+  
+};
+        function preload()
+        {
+            this.load.setBaseURL('');
+
+            this.load.image('metal2', '/media/metal2.png');
+            this.load.image('ship', '/media/spaceshit.png');
+            this.load.image('asteroid','/media/asteroid.png')
+            this.load.image('rock','/media/rock.png')
+            this.load.image('metal', '/media/metal.png');
+            this.load.image('background', '/media/background.png');
+            
+        }
+        var game = new Phaser.Game(config);
+
+var SPEED = 250;
+var ROTATION_SPEED = 1.5 * Math.PI; // 0.5 turn per sec, 2 sec per turn
+var ROTATION_SPEED_DEGREES = Phaser.Math.RadToDeg(ROTATION_SPEED);
+var TOLERANCE = 0.02 * ROTATION_SPEED;
+
+var score = 0
+
+var velocityFromRotation = Phaser.Physics.Arcade.ArcadePhysics.prototype.velocityFromRotation;
+var ship;
+
+        function create()
+        {
+            //this.input.setDefaultCursor('url("/media/asteroid.png"), pointer');
+            this.add.image(640, 360, 'background');
+
+            const particles = this.add.particles(0, 0, 'metal', {
+                speed: 100,
+                scale: { start: 1, end: 0 },
+                blendMode: 'ADD'
+            });
+
+            
+            const asteroids = this.physics.add.group(); // Create a group for asteroids
+
+
+setInterval(()=>{ 
+    if (alive){
+    const x = Phaser.Math.Between(0, this.sys.game.config.width); // Random x coordinate
+    const asteroid = asteroids.create(x, 0, 'asteroid'); // Spawn from the upper edge
+    asteroid.setVelocity(Phaser.Math.Between(-200, 200), Phaser.Math.Between(100, 300)); // Random velocities
+    asteroid.setBounce(1, 1);
+    asteroid.setCollideWorldBounds(true);
+    this.physics.add.collider(asteroid, asteroids, asteroidCollision, null, this); // Add collision detection between asteroids
+    score = score + 1
+}
+},200);
+
+ship = this.physics.add.image(500, 500, 'ship')
+ship.setVelocity(SPEED, 0);
+this.physics.add.collider(ship, asteroids, playerShipCollision, null, this);
+particles.startFollow(ship);
+}
+
+
+function update(){
+        if(alive){
+            pointerMove(this.input.activePointer);
+            velocityFromRotation(ship.rotation, SPEED, ship.body.velocity);
+            ship.body.debugBodyColor = (ship.body.angularVelocity === 0) ? 0xff0000 : 0xffff00;
+        }
+            
+        }
+
+        
+        function pointerMove(pointer) {
+        var angleToPointer = Phaser.Math.Angle.Between(ship.x, ship.y, pointer.worldX, pointer.worldY);
+        var angleDelta = Phaser.Math.Angle.Wrap(angleToPointer - ship.rotation);
+        if (Phaser.Math.Fuzzy.Equal(angleDelta, 0, TOLERANCE)) {
+            ship.rotation = angleToPointer;
+            ship.setAngularVelocity(0);
+        } else {
+            ship.setAngularVelocity(Math.sign(angleDelta) * ROTATION_SPEED_DEGREES);
+        }
+    }
+
+    function asteroidCollision(asteroid1, asteroid2) {
+    // Create explosion particles at the collision point
+    const particles = this.add.particles(0, 0, 'rock', {
+        x: (asteroid1.x + asteroid2.x) / 2,
+        y: (asteroid1.y + asteroid2.y) / 2,
+        speed: { min: 50, max: 200 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1, end: 0 },
+        lifespan: 500,
+        blendMode: 'NORMAL'
+            });
+    
+    // Destroy both asteroids
+    asteroid1.destroy();
+    asteroid2.destroy();
+    this.time.delayedCall(500, () => {
+        particles.stop();
+    });
+}
+
+function playerShipCollision(ship, asteroids) {
+    alive=false;
+    
+    // Create explosion particles at the ship's position
+    const explosion = this.add.particles(0,0,'metal2', {
+        x: ship.x,
+        y: ship.y,
+        speed: { min: 50, max: 200 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1, end: 0 },
+        lifespan: 500,
+        blendMode: 'ADD'
+    });
+    this.time.delayedCall(500, () => {
+        explosion.stop();
+    });
+    ship.destroy();
+    // .destroy();
+
+    
+    // Stop the game and display a game over message
+    this.add.text(400, 300, 'Game Over', { fontSize: '64px', fill: '#fff' }).setOrigin(0.5);
+    this.add.text(800, 300, 'Score:'+score, { fontSize: '60px', fill: '#fff' }).setOrigin(0.5)
+    
+    this.physics.pause();
+    
+}
+        
+
+
+
+    </script>
+
+</body>
+</html>
